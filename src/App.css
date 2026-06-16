@@ -275,7 +275,7 @@ body {
 }
 .btn-share:active { opacity: .8; }
 
-.btn-share-raw {
+.btn-raw-toggle {
   background: transparent;
   color: #a1a1aa;
   border: 1px solid #e4e4e7;
@@ -284,6 +284,12 @@ body {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.btn-raw-toggle.active {
+  background: #18181b;
+  color: #fff;
+  border-color: #18181b;
 }
 
 .btn-clear {
@@ -303,6 +309,43 @@ body {
   font-size: 14px;
   margin-top: 80px;
   font-weight: 500;
+}
+
+/* ── 원문 뷰 ── */
+.raw-wrap {
+  flex: 1;
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e4e4e7;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  display: flex;
+  flex-direction: column;
+}
+.raw-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #f4f4f5;
+}
+.raw-row:last-child { border-bottom: none; }
+.raw-num {
+  flex-shrink: 0;
+  width: 20px;
+  text-align: right;
+  font-size: 10px;
+  font-weight: 600;
+  color: #d4d4d8;
+}
+.raw-text {
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: #18181b;
+  word-break: break-all;
+  letter-spacing: -0.2px;
+  line-height: 1.5;
 }
 
 /* ── 테이블 ── */

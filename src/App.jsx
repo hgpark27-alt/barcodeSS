@@ -24,6 +24,7 @@ export default function App() {
   const [tab, setTab]           = useState('scan')
   const [items, setItems]       = useState([])
   const [error, setError]       = useState(null)
+  const [rawView, setRawView]   = useState(false)
   const videoRef  = useRef(null)
   const canvasRef = useRef(null)
   const logRef    = useRef(null)
@@ -57,7 +58,7 @@ export default function App() {
   const startScan      = () => { setError(null); setScanning(true) }
   const stopScan       = () => setScanning(false)
   const switchToResult = () => { setScanning(false); setTab('result') }
-  const clearAll       = () => { setItems([]); seenRef.current.clear() }
+  const clearAll       = () => { setItems([]); seenRef.current.clear(); setRawView(false) }
 
   useEffect(() => {
     if (!scanning) return
@@ -182,13 +183,10 @@ export default function App() {
       else { await navigator.clipboard.writeText(text); alert('클립보드에 복사됐습니다') }
     } catch {}
   }
-  const handleShare    = () => {
+  const handleShare = () => {
     const rows = [...items].reverse()
     share('No.\tS/N\tP/N\tS/O\n' +
       rows.map((it, i) => `${i + 1}\t${it.sn || '-'}\t${it.pn || '-'}\t${it.so || '-'}`).join('\n'))
-  }
-  const handleShareRaw = () => {
-    share([...items].reverse().map(it => it.raw).join('\n'))
   }
 
   return (
@@ -257,25 +255,36 @@ export default function App() {
                 <span className="result-count">{items.length}개</span>
                 <div className="result-btns">
                   <button className="btn-share" onClick={handleShare}>공유</button>
-                  <button className="btn-share-raw" onClick={handleShareRaw}>원문</button>
+                  <button className={`btn-raw-toggle ${rawView ? 'active' : ''}`}
+                    onClick={() => setRawView(v => !v)}>원문</button>
                   <button className="btn-clear" onClick={clearAll}>초기화</button>
                 </div>
               </div>
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>#</th><th>S/N</th><th>P/N</th><th>S/O</th></tr></thead>
-                  <tbody>
-                    {items.map((item, i) => (
-                      <tr key={i}>
-                        <td className="td-num">{items.length - i}</td>
-                        <td>{item.sn || '—'}</td>
-                        <td>{item.pn || '—'}</td>
-                        <td>{item.so || '—'}</td>
-                      </tr>
+              {rawView
+                ? <div className="raw-wrap">
+                    {[...items].reverse().map((item, i) => (
+                      <div key={i} className="raw-row">
+                        <span className="raw-num">{i + 1}</span>
+                        <span className="raw-text">{item.raw}</span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                : <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>#</th><th>S/N</th><th>P/N</th><th>S/O</th></tr></thead>
+                      <tbody>
+                        {items.map((item, i) => (
+                          <tr key={i}>
+                            <td className="td-num">{items.length - i}</td>
+                            <td>{item.sn || '—'}</td>
+                            <td>{item.pn || '—'}</td>
+                            <td>{item.so || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+              }
             </>
         }
       </div>
