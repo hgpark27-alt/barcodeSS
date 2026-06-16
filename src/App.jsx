@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { readBarcodesFromImageData, setZXingModuleOverrides } from 'zxing-wasm/reader'
 import wasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url'
+import { QRCodeSVG } from 'qrcode.react'
 import './App.css'
+
+const APP_URL = 'https://hgpark27-alt.github.io/barcodeSS/'
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
 setZXingModuleOverrides({ locateFile: (p) => p.endsWith('.wasm') ? wasmUrl : p })
 
@@ -188,6 +192,31 @@ export default function App() {
     share('No.\tS/N\tP/N\tS/O\n' +
       rows.map((it, i) => `${i + 1}\t${it.sn || '-'}\t${it.pn || '-'}\t${it.so || '-'}`).join('\n'))
   }
+
+  if (!isMobile) return (
+    <div className="pc-landing">
+      <div className="pc-card">
+        <div className="pc-barcode-icon">
+          <svg width="48" height="30" viewBox="0 0 48 30" fill="none">
+            <rect x="0"  y="0" width="4"  height="30" fill="#18181b" rx="1.5"/>
+            <rect x="7"  y="4" width="2"  height="22" fill="#18181b" rx="1"/>
+            <rect x="12" y="0" width="5"  height="30" fill="#18181b" rx="1.5"/>
+            <rect x="20" y="4" width="2"  height="22" fill="#18181b" rx="1"/>
+            <rect x="25" y="0" width="4"  height="30" fill="#18181b" rx="1.5"/>
+            <rect x="32" y="4" width="5"  height="22" fill="#18181b" rx="1"/>
+            <rect x="40" y="0" width="2"  height="30" fill="#18181b" rx="1.5"/>
+            <rect x="45" y="4" width="3"  height="22" fill="#18181b" rx="1"/>
+          </svg>
+        </div>
+        <h1 className="pc-title">바코드 스캐너</h1>
+        <p className="pc-desc">이 앱은 모바일에서 사용하도록 만들어졌습니다.<br />아래 QR코드를 스마트폰으로 찍어 여세요.</p>
+        <div className="pc-qr">
+          <QRCodeSVG value={APP_URL} size={180} bgColor="#fff" fgColor="#18181b" />
+        </div>
+        <p className="pc-url">{APP_URL}</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="app">
