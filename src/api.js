@@ -2,7 +2,8 @@
 // redirect: "follow" 필수 — Apps Script는 302 리다이렉트를 반환함
 // Content-Type 미설정(= text/plain) → preflight(OPTIONS) 없음 → CORS 우회
 
-const BASE = import.meta.env.VITE_APPS_SCRIPT_URL || ''
+const BASE = import.meta.env.VITE_APPS_SCRIPT_URL ||
+  'https://script.google.com/macros/s/AKfycbySKnwaZEyIgwJEq2npaLuSVojLT3EGXgOJLPnGlbWnn9RdZKmL6xuAsCFi2dAHfTQ0DA/exec'
 
 export const isConfigured = () => !!BASE
 
