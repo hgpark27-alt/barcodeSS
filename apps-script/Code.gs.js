@@ -23,6 +23,7 @@ const HEADERS = {
   KITS:       ["id", "name", "parts", "updatedAt"],
   QUOTES:     ["id", "quoteNo", "poNo", "kitId", "items", "totalUSD", "totalKRW", "createdAt"],
   TRADE_DOCS: ["id", "docNo", "poNo", "quoteId", "sn", "shipping", "barcodeVal", "status", "createdAt"],
+  PTN:        ["poNo", "pkgId", "partNo"],
   CONFIG:     ["key", "value"],
   ADD:        ["key", "value"],
 }
@@ -51,7 +52,7 @@ function doGet(e) {
 
     const ss    = SpreadsheetApp.openById(SHEET_ID)
     const sheet = ss.getSheetByName(sheetName)
-    if (!sheet) return ok({ error: `시트 '${sheetName}' 없음. ?sheet=__init__ 먼저 실행` })
+    if (!sheet) return ok({ ok: true, values: [] })   // 시트 없으면 빈 배열 (에러 아님)
 
     const values = sheet.getDataRange().getValues()
     return ok({ ok: true, values })
@@ -71,9 +72,12 @@ function doPost(e) {
 
     if (!sheetName) return ok({ error: "sheet 필드 필요" })
 
-    const ss    = SpreadsheetApp.openById(SHEET_ID)
-    const sheet = ss.getSheetByName(sheetName)
-    if (!sheet) return ok({ error: `시트 '${sheetName}' 없음` })
+    const ss = SpreadsheetApp.openById(SHEET_ID)
+    let sheet = ss.getSheetByName(sheetName)
+    if (!sheet) {
+      // 없는 시트는 자동 생성 (첫 write/append 시)
+      sheet = ss.insertSheet(sheetName)
+    }
 
     if (action === "write") {
       // 전체 덮어쓰기

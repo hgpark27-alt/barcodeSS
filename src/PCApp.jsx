@@ -24,18 +24,19 @@ function now() {
 // ──────────────────────────────────────────
 // 공통 헤더
 // ──────────────────────────────────────────
-function Header({ tab, onTab }) {
-  const tabs = [
-    { id: 'kits',   label: '키트 관리' },
-    { id: 'quote',  label: '견적서' },
-    { id: 'trade',  label: '거래명세서' },
-    { id: 'upload', label: 'PTN 업로드' },
-    { id: 'list',   label: '목록' },
-  ]
+const NAV_TABS = [
+  { id: 'kits',   label: '키트 관리' },
+  { id: 'quote',  label: '견적서' },
+  { id: 'trade',  label: '거래명세서' },
+  { id: 'upload', label: 'PTN 업로드' },
+  { id: 'list',   label: '목록' },
+]
+
+function Header() {
   return (
     <header className="pc-hdr">
       <div className="pc-hdr-brand">
-        <svg width="28" height="18" viewBox="0 0 28 18" fill="none" style={{ marginRight: 8 }}>
+        <svg width="24" height="16" viewBox="0 0 28 18" fill="none" style={{ marginRight: 8 }}>
           <rect x="0" y="0" width="3" height="18" fill="#2563eb" rx="1"/>
           <rect x="5" y="3" width="2" height="12" fill="#2563eb" rx="1"/>
           <rect x="9" y="0" width="4" height="18" fill="#2563eb" rx="1"/>
@@ -45,20 +46,25 @@ function Header({ tab, onTab }) {
         </svg>
         씰마스터
       </div>
-      <nav className="pc-hdr-nav">
-        {tabs.map(t => (
-          <button key={t.id}
-            className={`pc-nav-btn ${tab === t.id ? 'active' : ''}`}
-            onClick={() => onTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </nav>
       <div className="pc-hdr-qr">
-        <QRCodeSVG value={APP_URL} size={40} />
+        <QRCodeSVG value={APP_URL} size={36} />
         <span className="pc-hdr-qr-label">모바일</span>
       </div>
     </header>
+  )
+}
+
+function Sidebar({ tab, onTab }) {
+  return (
+    <nav className="pc-sidebar">
+      {NAV_TABS.map(t => (
+        <button key={t.id}
+          className={`pc-nav-btn ${tab === t.id ? 'active' : ''}`}
+          onClick={() => onTab(t.id)}>
+          {t.label}
+        </button>
+      ))}
+    </nav>
   )
 }
 
@@ -608,24 +614,26 @@ export default function PCApp() {
 
   return (
     <div className="pc-root">
-      <Header tab={tab} onTab={setTab} />
+      <Header />
 
       {!api.isConfigured() && (
         <div className="api-setup-banner">
           <strong>설정 필요</strong> — GitHub Secret <code>VITE_APPS_SCRIPT_URL</code>을 추가하고 재배포하세요.
         </div>
       )}
-
       {loading && <div className="loading-bar">로딩중...</div>}
       {err && <div className="api-err-banner">오류: {err}</div>}
 
-      <main className="pc-main">
-        {tab === 'kits'   && <KitsTab   kits={kits}    rawKits={rawKits}   onSave={load} />}
-        {tab === 'quote'  && <QuoteTab  kits={kits}    quotes={quotes}     config={config} rawQuotes={rawQuotes} onSave={load} />}
-        {tab === 'trade'  && <TradeTab  quotes={quotes} tradeDocs={tradeDocs} rawTradeDocs={rawTrade} onSave={load} />}
-        {tab === 'upload' && <UploadTab tradeDocs={tradeDocs} rawTrade={rawTrade} onApply={updated => { setRawTrade(updated); setTradeDocs(api.toObjects(updated)) }} />}
-        {tab === 'list'   && <ListTab   quotes={quotes} tradeDocs={tradeDocs} onRefresh={load} />}
-      </main>
+      <div className="pc-body">
+        <Sidebar tab={tab} onTab={setTab} />
+        <main className="pc-main">
+          {tab === 'kits'   && <KitsTab   kits={kits}    rawKits={rawKits}   onSave={load} />}
+          {tab === 'quote'  && <QuoteTab  kits={kits}    quotes={quotes}     config={config} rawQuotes={rawQuotes} onSave={load} />}
+          {tab === 'trade'  && <TradeTab  quotes={quotes} tradeDocs={tradeDocs} rawTradeDocs={rawTrade} onSave={load} />}
+          {tab === 'upload' && <UploadTab />}
+          {tab === 'list'   && <ListTab   quotes={quotes} tradeDocs={tradeDocs} onRefresh={load} />}
+        </main>
+      </div>
     </div>
   )
 }

@@ -18,36 +18,63 @@ body {
   flex-direction: column;
 }
 
-/* ── 헤더 ── */
+/* ── 헤더 (브랜드 + QR만) ── */
 .pc-hdr {
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  height: 56px;
-  gap: 24px;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 52px;
   position: sticky;
   top: 0;
   z-index: 100;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
 .pc-hdr-brand {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   color: #1e293b;
   letter-spacing: -.4px;
   display: flex;
   align-items: center;
-  flex-shrink: 0;
 }
-.pc-hdr-nav {
+.pc-hdr-qr {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
+}
+.pc-hdr-qr-label {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* ── 바디 (사이드바 + 콘텐츠) ── */
+.pc-body {
+  display: flex;
   flex: 1;
+  min-height: 0;
+}
+
+/* ── 사이드바 ── */
+.pc-sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 10px;
+  gap: 2px;
+  position: sticky;
+  top: 52px;
+  height: calc(100vh - 52px);
+  overflow-y: auto;
 }
 .pc-nav-btn {
-  padding: 8px 16px;
+  width: 100%;
+  padding: 10px 14px;
   border: none;
   background: none;
   border-radius: 8px;
@@ -55,22 +82,11 @@ body {
   font-weight: 500;
   color: #64748b;
   cursor: pointer;
+  text-align: left;
   transition: background .12s, color .12s;
-  white-space: nowrap;
 }
-.pc-nav-btn:hover { background: #f1f5f9; color: #1e293b; }
+.pc-nav-btn:hover  { background: #f1f5f9; color: #1e293b; }
 .pc-nav-btn.active { background: #1e293b; color: #fff; }
-
-.pc-hdr-qr {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.pc-hdr-qr-label {
-  font-size: 11px;
-  color: #94a3b8;
-}
 
 /* ── 배너 ── */
 .api-setup-banner {
@@ -100,13 +116,12 @@ body {
   color: #dc2626;
 }
 
-/* ── 메인 ── */
+/* ── 메인 콘텐츠 ── */
 .pc-main {
   flex: 1;
-  padding: 24px;
-  max-width: 900px;
-  width: 100%;
-  margin: 0 auto;
+  padding: 28px 32px;
+  overflow-y: auto;
+  min-width: 0;
 }
 
 /* ── 탭 바디 ── */
