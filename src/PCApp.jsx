@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import * as api from './api'
+import UploadTab from './UploadTab'
 import './PCApp.css'
 
 const APP_URL = 'https://hgpark27-alt.github.io/barcodeSS/'
@@ -28,6 +29,7 @@ function Header({ tab, onTab }) {
     { id: 'kits',   label: '키트 관리' },
     { id: 'quote',  label: '견적서' },
     { id: 'trade',  label: '거래명세서' },
+    { id: 'upload', label: 'PTN 업로드' },
     { id: 'list',   label: '목록' },
   ]
   return (
@@ -618,10 +620,11 @@ export default function PCApp() {
       {err && <div className="api-err-banner">오류: {err}</div>}
 
       <main className="pc-main">
-        {tab === 'kits'  && <KitsTab   kits={kits}    rawKits={rawKits}   onSave={load} />}
-        {tab === 'quote' && <QuoteTab  kits={kits}    quotes={quotes}     config={config} rawQuotes={rawQuotes} onSave={load} />}
-        {tab === 'trade' && <TradeTab  quotes={quotes} tradeDocs={tradeDocs} rawTradeDocs={rawTrade} onSave={load} />}
-        {tab === 'list'  && <ListTab   quotes={quotes} tradeDocs={tradeDocs} onRefresh={load} />}
+        {tab === 'kits'   && <KitsTab   kits={kits}    rawKits={rawKits}   onSave={load} />}
+        {tab === 'quote'  && <QuoteTab  kits={kits}    quotes={quotes}     config={config} rawQuotes={rawQuotes} onSave={load} />}
+        {tab === 'trade'  && <TradeTab  quotes={quotes} tradeDocs={tradeDocs} rawTradeDocs={rawTrade} onSave={load} />}
+        {tab === 'upload' && <UploadTab tradeDocs={tradeDocs} rawTrade={rawTrade} onApply={updated => { setRawTrade(updated); setTradeDocs(api.toObjects(updated)) }} />}
+        {tab === 'list'   && <ListTab   quotes={quotes} tradeDocs={tradeDocs} onRefresh={load} />}
       </main>
     </div>
   )
