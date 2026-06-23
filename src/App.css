@@ -451,3 +451,144 @@ tr:last-child td { border-bottom: none; }
   font-weight: 600;
   font-family: inherit;
 }
+
+/* ── API 경고 ── */
+.api-warn {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  text-align: center;
+  padding: 7px 12px;
+  border-bottom: 1px solid #fde68a;
+}
+
+/* ── 세션 상태 바 ── */
+.session-bar {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.session-chip {
+  flex: 1;
+  min-width: 90px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: background .15s, color .15s;
+}
+.chip-empty {
+  background: #f4f4f5;
+  color: #a1a1aa;
+}
+.chip-done {
+  background: #dcfce7;
+  color: #15803d;
+}
+.chip-sub {
+  font-size: 10px;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* ── 스캔 진행 표시 ── */
+.scan-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #71717a;
+  font-weight: 500;
+}
+.btn-reset-session {
+  background: none;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #71717a;
+  cursor: pointer;
+}
+
+/* ── PASS / FAIL 오버레이 ── */
+.pass-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  animation: overlay-in .25s ease-out;
+  pointer-events: none;
+}
+.pass-ok   { background: rgba(34, 197, 94, 0.92); }
+.pass-fail { background: rgba(220, 38, 38, 0.88); }
+.pass-icon { font-size: 72px; line-height: 1; }
+.pass-po   { font-size: 22px; font-weight: 700; color: #fff; font-family: 'SF Mono', ui-monospace, monospace; }
+.pass-msg  { font-size: 14px; color: rgba(255,255,255,.85); font-weight: 500; text-align: center; padding: 0 24px; }
+@keyframes overlay-in {
+  from { opacity: 0; transform: scale(.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── PASS 플래시 색상 ── */
+.scan-flash.flash-pass {
+  animation: flash-pass .4s ease-out forwards;
+}
+.scan-flash.flash-fail {
+  animation: flash-fail .4s ease-out forwards;
+}
+@keyframes flash-pass {
+  0%   { background: #22c55e; opacity: .7; }
+  100% { background: #22c55e; opacity: 0; }
+}
+@keyframes flash-fail {
+  0%   { background: #dc2626; opacity: .7; }
+  100% { background: #dc2626; opacity: 0; }
+}
+
+/* ── PASS 결과 테이블 ── */
+.pass-table-wrap {
+  flex: 1;
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e4e4e7;
+  -webkit-overflow-scrolling: touch;
+}
+.pass-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.pass-table th {
+  background: #f9fafb;
+  padding: 9px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.pass-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #111827;
+  word-break: break-all;
+}
+.pass-table tr:last-child td { border-bottom: none; }
+.mono { font-family: 'SF Mono', ui-monospace, monospace; letter-spacing: -.1px; }
+.small { font-size: 11px; color: #6b7280; }
