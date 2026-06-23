@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { readBarcodesFromImageData, setZXingModuleOverrides } from 'zxing-wasm/reader'
 import wasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url'
-import { api } from './api'
+import * as api from './api'
 import './App.css'
 
 setZXingModuleOverrides({ locateFile: (p) => p.endsWith('.wasm') ? wasmUrl : p })
@@ -55,15 +55,14 @@ export default function ScannerApp() {
   const sessionRef = useRef(EMPTY_SESSION)
   const masterRef  = useRef([])
 
-  // 마스터 데이터 로드
+  // TRADE_DOCS 로드 (거래명세서 목록 — PO·SN·Shipping# 검증용)
   useEffect(() => {
     if (!api.isConfigured()) return
-    api.getMasterList()
-      .then(data => {
-        if (Array.isArray(data)) {
-          setMasterData(data)
-          masterRef.current = data
-        }
+    api.readSheet('TRADE_DOCS')
+      .then(values => {
+        const rows = api.toObjects(values)
+        setMasterData(rows)
+        masterRef.current = rows
       })
       .catch(() => {})
   }, [])
@@ -126,38 +125,45 @@ export default function ScannerApp() {
       return
     }
 
-    const record = master.find(r => String(r['PO번호']).trim() === gc.po)
+    // TRADE_DOCS에서 거래명세서 BC(PO)로 레코드 찾기
+    const record = master.find(r => String(r['poNo'] || r['barcodeVal'] || '').includes(gc.po))
     if (!record) {
       triggerFailFeedback()
-      setPassResult({ ok: false, po: gc.po, msg: `PO '${gc.po}' 마스터에 없음` })
+      setPassResult({ ok: false, po: gc.po, msg: `PO '${gc.po}' 거래명세서에 없음` })
       dbgLog(`FAIL: PO '${gc.po}' 없음`)
       setTimeout(() => setPassResult(null), 4000)
       resetSession()
       return
     }
 
-    const masterSN       = String(record['SN'] || '').trim()
-    const masterSO       = String(record['0247#'] || '').trim()
-    const masterShipping = String(record['Shipping#'] || '').trim()
+    const masterSN       = String(record['sn']       || '').trim()
+    const masterShipping = String(record['shipping']  || '').trim()
 
-    const snMatch = !masterSN || masterSN === sn.sn
-    const soMatch = !masterSO || masterSO === sn.so
-    const snOk    = snMatch || soMatch
-
+    const snOk       = !masterSN       || masterSN === sn.sn
     const shippingOk = !masterShipping || ptn.raw.includes(masterShipping)
 
     if (snOk && shippingOk) {
       triggerPassFeedback()
       const item = {
-        po:        gc.po,
-        sjbun:     masterSO,
+        poNo:      gc.po,
         sn:        sn.sn,
-        shipping:  masterShipping || ptn.raw.slice(0, 20),
+        shipping:  masterShipping || ptn.raw.slice(0, 30),
         passedAt:  new Date().toLocaleString('ko-KR'),
       }
       setPassResult({ ok: true, po: gc.po, msg: '검증 PASS' })
       setPassItems(prev => [item, ...prev])
-      try { await api.addVerification(item) } catch {}
+      // TRADE_DOCS 상태를 검증PASS로 업데이트 (전체 재쓰기)
+      try {
+        const values = await api.readSheet('TRADE_DOCS')
+        const updated = values.map((row, i) => {
+          if (i === 0) return row  // 헤더
+          if (String(row[2]).includes(gc.po)) {  // col 2 = poNo
+            const r = [...row]; r[7] = '검증PASS'; return r
+          }
+          return row
+        })
+        await api.writeSheet('TRADE_DOCS', updated)
+      } catch {}
       resetSession()
       setTimeout(() => setPassResult(null), 3000)
     } else {

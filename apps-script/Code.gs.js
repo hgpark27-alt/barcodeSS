@@ -2,165 +2,129 @@
 //  씰마스터 앱 — Google Apps Script 백엔드
 //
 //  [설치 방법]
-//  1. 이 Google Spreadsheet 열기
+//  1. 이 스프레드시트 열기
 //     https://docs.google.com/spreadsheets/d/1GVU10lk0Q81ur1JZBnY2lrJn_I2SETpaj_vyvcWJvtc
 //  2. 확장 프로그램 → Apps Script
-//  3. Code.gs 내용 전체 지우고 이 파일 내용 붙여넣기
+//  3. Code.gs 내용 전부 지우고 이 파일 내용 붙여넣기
 //  4. 저장 (Ctrl+S)
-//  5. 배포 → 새 배포 → 유형: 웹 앱
-//     - 다음 사용자로 실행: 나 (Me)
-//     - 액세스 권한: 모든 사용자 (Anyone)
-//  6. 배포 → 복사된 URL → .env.local 파일에 붙여넣기
-//     VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/.../exec
+//  5. 배포 → 새 배포 → 유형: 웹앱
+//     - 다음 사용자로 실행: 나
+//     - 액세스 권한: 모든 사용자
+//  6. 배포 URL → GitHub Secret "VITE_APPS_SCRIPT_URL" 에 저장
 //
-//  [시트 초기화]
-//  배포 후 브라우저에서 아래 URL 한 번 열기 (시트 자동 생성):
-//  https://script.google.com/macros/s/.../exec?action=init
+//  [시트 초기화] 배포 후 아래 URL 한 번만 열기:
+//  {배포URL}?sheet=__init__
 // ════════════════════════════════════════════════════════════
 
-const MASTER = '마스터'
-const VERIFY = '검증결과'
+const SHEET_ID = "1GVU10lk0Q81ur1JZBnY2lrJn_I2SETpaj_vyvcWJvtc"
 
-const M_HEADERS = ['PO번호', '0247#', 'SN', 'Price_USD', 'Shipping#', '상태', '생성일시', '거명일시', 'PTN일시']
-const V_HEADERS = ['PO번호', '0247#', 'SN', 'Shipping#', 'PASS일시', '스캔담당']
-
-function initSheets_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet()
-
-  function ensureSheet(name, headers, color) {
-    let sh = ss.getSheetByName(name)
-    if (!sh) {
-      sh = ss.insertSheet(name)
-      sh.appendRow(headers)
-      sh.setFrozenRows(1)
-      sh.getRange(1, 1, 1, headers.length)
-        .setFontWeight('bold')
-        .setBackground(color)
-        .setFontColor('#ffffff')
-      sh.setColumnWidths(1, headers.length, 140)
-    }
-    return sh
-  }
-
-  ensureSheet(MASTER, M_HEADERS, '#1e2a3a')
-  ensureSheet(VERIFY, V_HEADERS, '#1a3a1a')
+// 시트별 헤더 정의
+const HEADERS = {
+  KITS:       ["id", "name", "parts", "updatedAt"],
+  QUOTES:     ["id", "quoteNo", "poNo", "kitId", "items", "totalUSD", "totalKRW", "createdAt"],
+  TRADE_DOCS: ["id", "docNo", "poNo", "quoteId", "sn", "shipping", "barcodeVal", "status", "createdAt"],
+  CONFIG:     ["key", "value"],
+  ADD:        ["key", "value"],
 }
 
+const CONFIG_DEFAULTS = [
+  ["exchangeRate", "1350"],
+  ["quoteSequence", "1"],
+]
+const ADD_DEFAULTS = [
+  ["icpmsPrice", "0"],
+  ["lpcPrice", "0"],
+]
+
+// ── GET: ?sheet=KITS → { ok, values: [[...]] }
 function doGet(e) {
   try {
-    initSheets_()
-    const a  = (e.parameter.action || '').trim()
-    const ss = SpreadsheetApp.getActiveSpreadsheet()
+    const sheetName = (e.parameter.sheet || "").trim()
 
-    if (a === 'init') return respond({ ok: true, msg: '시트 초기화 완료' })
-
-    if (a === 'list') {
-      return respond(toObjects_(ss.getSheetByName(MASTER)))
+    // 시트 초기화 요청
+    if (sheetName === "__init__") {
+      initSheets_()
+      return ok({ msg: "시트 초기화 완료" })
     }
 
-    if (a === 'verifyList') {
-      return respond(toObjects_(ss.getSheetByName(VERIFY)))
-    }
+    if (!sheetName) return ok({ error: "sheet 파라미터 필요" })
 
-    if (a === 'getByPO') {
-      const po   = (e.parameter.po || '').trim()
-      const rows = toObjects_(ss.getSheetByName(MASTER))
-      const found = rows.find(r => String(r['PO번호']).trim() === po)
-      return respond(found || null)
-    }
+    const ss    = SpreadsheetApp.openById(SHEET_ID)
+    const sheet = ss.getSheetByName(sheetName)
+    if (!sheet) return ok({ error: `시트 '${sheetName}' 없음. ?sheet=__init__ 먼저 실행` })
 
-    return respond({ error: '알 수 없는 action: ' + a })
+    const values = sheet.getDataRange().getValues()
+    return ok({ ok: true, values })
   } catch (err) {
-    return respond({ error: err.toString() })
+    return ok({ error: err.toString() })
   }
 }
 
+// ── POST: { sheet, action, values } → { ok }
+// action: "write" → 전체 덮어쓰기 (시트 초기화 후 setValues)
+// action: "append" → 마지막 행에 추가 (헤더 유지)
 function doPost(e) {
   try {
-    initSheets_()
-    const b   = JSON.parse(e.postData.contents)
-    const a   = (b.action || '').trim()
-    const ss  = SpreadsheetApp.getActiveSpreadsheet()
-    const msh = ss.getSheetByName(MASTER)
-    const vsh = ss.getSheetByName(VERIFY)
-    const now = new Date().toLocaleString('ko-KR')
+    const body      = JSON.parse(e.postData.contents)
+    const sheetName = (body.sheet || "").trim()
+    const action    = (body.action || "write").trim()
 
-    // 견적서 저장
-    if (a === 'addQuotation') {
-      if (!b.po) return respond({ error: 'PO번호 필수' })
-      const existing = findRow_(msh, b.po)
-      if (existing > 0) return respond({ error: `PO '${b.po}' 이미 존재 (행 ${existing})` })
-      msh.appendRow([b.po, b.sjbun || '', b.sn || '', b.price || '', '', '견적완료', now, '', ''])
-      return respond({ ok: true })
+    if (!sheetName) return ok({ error: "sheet 필드 필요" })
+
+    const ss    = SpreadsheetApp.openById(SHEET_ID)
+    const sheet = ss.getSheetByName(sheetName)
+    if (!sheet) return ok({ error: `시트 '${sheetName}' 없음` })
+
+    if (action === "write") {
+      // 전체 덮어쓰기
+      const values = body.values
+      if (!values || !values.length) return ok({ error: "values 필요" })
+      sheet.clearContents()
+      sheet.getRange(1, 1, values.length, values[0].length).setValues(values)
     }
 
-    // 거래명세서 SN 업데이트
-    if (a === 'updateSN') {
-      if (!b.po || !b.sn) return respond({ error: 'po, sn 필수' })
-      const row = findRow_(msh, b.po)
-      if (!row) return respond({ error: `PO '${b.po}' 없음` })
-      msh.getRange(row, 3).setValue(b.sn)
-      msh.getRange(row, 6).setValue('거명완료')
-      msh.getRange(row, 8).setValue(now)
-      return respond({ ok: true })
+    else if (action === "append") {
+      // 단일 행 추가
+      const row = body.row
+      if (!row || !row.length) return ok({ error: "row 필요" })
+      sheet.appendRow(row)
     }
 
-    // PTN Shipping# 업데이트
-    if (a === 'updateShipping') {
-      if (!b.po || !b.shipping) return respond({ error: 'po, shipping 필수' })
-      const row = findRow_(msh, b.po)
-      if (!row) return respond({ error: `PO '${b.po}' 없음` })
-      msh.getRange(row, 5).setValue(b.shipping)
-      msh.getRange(row, 6).setValue('PTN완료')
-      msh.getRange(row, 9).setValue(now)
-      return respond({ ok: true })
+    else {
+      return ok({ error: `알 수 없는 action: ${action}` })
     }
 
-    // 바코드 검증 PASS
-    if (a === 'addVerification') {
-      if (!b.po) return respond({ error: 'po 필수' })
-      vsh.appendRow([b.po, b.sjbun || '', b.sn || '', b.shipping || '', now, b.operator || '모바일'])
-      const row = findRow_(msh, b.po)
-      if (row) msh.getRange(row, 6).setValue('검증PASS')
-      return respond({ ok: true })
-    }
-
-    // 레코드 삭제
-    if (a === 'deleteByPO') {
-      if (!b.po) return respond({ error: 'po 필수' })
-      const row = findRow_(msh, b.po)
-      if (!row) return respond({ error: `PO '${b.po}' 없음` })
-      msh.deleteRow(row)
-      return respond({ ok: true })
-    }
-
-    return respond({ error: '알 수 없는 action: ' + a })
+    return ok({ ok: true })
   } catch (err) {
-    return respond({ error: err.toString() })
+    return ok({ error: err.toString() })
   }
 }
 
-function findRow_(sheet, po) {
-  const vals = sheet.getDataRange().getValues()
-  for (let i = 1; i < vals.length; i++) {
-    if (String(vals[i][0]).trim() === String(po).trim()) return i + 1
-  }
-  return 0
-}
+// ── 헬퍼 ──
 
-function toObjects_(sheet) {
-  if (!sheet) return []
-  const data = sheet.getDataRange().getValues()
-  if (data.length < 2) return []
-  const h = data[0]
-  return data.slice(1).map(row => {
-    const o = {}
-    h.forEach((k, i) => { o[String(k)] = row[i] })
-    return o
+function initSheets_() {
+  const ss = SpreadsheetApp.openById(SHEET_ID)
+
+  Object.entries(HEADERS).forEach(([name, headers]) => {
+    let sheet = ss.getSheetByName(name)
+    if (!sheet) {
+      sheet = ss.insertSheet(name)
+      sheet.appendRow(headers)
+      sheet.setFrozenRows(1)
+      sheet.getRange(1, 1, 1, headers.length)
+        .setFontWeight("bold")
+        .setBackground("#1e2a3a")
+        .setFontColor("#ffffff")
+      sheet.setColumnWidths(1, headers.length, 150)
+
+      // 기본값 세팅
+      if (name === "CONFIG") CONFIG_DEFAULTS.forEach(r => sheet.appendRow(r))
+      if (name === "ADD")    ADD_DEFAULTS.forEach(r => sheet.appendRow(r))
+    }
   })
 }
 
-function respond(data) {
+function ok(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON)

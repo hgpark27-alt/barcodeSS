@@ -1,32 +1,76 @@
+// Google Apps Script fetch 래퍼
+// redirect: "follow" 필수 — Apps Script는 302 리다이렉트를 반환함
+// Content-Type 미설정(= text/plain) → preflight(OPTIONS) 없음 → CORS 우회
+
 const BASE = import.meta.env.VITE_APPS_SCRIPT_URL || ''
 
-async function get(action, params = {}) {
+export const isConfigured = () => !!BASE
+
+// ── 시트 전체 읽기 → 2D 배열 (values[0] = 헤더)
+export async function readSheet(sheet) {
   if (!BASE) throw new Error('APPS_SCRIPT_URL 미설정')
-  const u = new URL(BASE)
-  u.searchParams.set('action', action)
-  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, String(v)))
-  const res = await fetch(u.toString())
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+  const res = await fetch(`${BASE}?sheet=${encodeURIComponent(sheet)}`, {
+    redirect: 'follow',
+  })
+  const json = await res.json()
+  if (json.error) throw new Error(json.error)
+  return json.values   // [[header...], [row...], ...]
 }
 
-async function post(body) {
+// ── 시트 전체 덮어쓰기 (헤더 포함)
+export async function writeSheet(sheet, values) {
   if (!BASE) throw new Error('APPS_SCRIPT_URL 미설정')
-  // Content-Type 미설정 = text/plain → preflight 없음 (CORS 우회)
-  const res = await fetch(BASE, { method: 'POST', body: JSON.stringify(body) })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+  const res = await fetch(BASE, {
+    method:   'POST',
+    redirect: 'follow',
+    body:     JSON.stringify({ sheet, action: 'write', values }),
+  })
+  const json = await res.json()
+  if (json.error) throw new Error(json.error)
+  return json
 }
 
-export const api = {
-  isConfigured: () => !!BASE,
-  init:              ()              => get('init'),
-  getMasterList:     ()              => get('list'),
-  getVerifyList:     ()              => get('verifyList'),
-  getByPO:           (po)            => get('getByPO', { po }),
-  addQuotation:      (d)             => post({ action: 'addQuotation',   ...d }),
-  updateSN:          (po, sn)        => post({ action: 'updateSN',       po, sn }),
-  updateShipping:    (po, shipping)  => post({ action: 'updateShipping', po, shipping }),
-  addVerification:   (d)             => post({ action: 'addVerification', ...d }),
-  deleteByPO:        (po)            => post({ action: 'deleteByPO',     po }),
+// ── 단일 행 추가
+export async function appendRow(sheet, row) {
+  if (!BASE) throw new Error('APPS_SCRIPT_URL 미설정')
+  const res = await fetch(BASE, {
+    method:   'POST',
+    redirect: 'follow',
+    body:     JSON.stringify({ sheet, action: 'append', row }),
+  })
+  const json = await res.json()
+  if (json.error) throw new Error(json.error)
+  return json
+}
+
+// ── 2D 배열 → 객체 배열 변환 (헤더행 기준)
+export function toObjects(values) {
+  if (!values || values.length < 1) return []
+  const headers = values[0]
+  return values.slice(1).map(row => {
+    const obj = {}
+    headers.forEach((h, i) => { obj[String(h)] = row[i] })
+    return obj
+  })
+}
+
+// ── 객체 배열 → 2D 배열 (헤더행 포함)
+export function fromObjects(headers, rows) {
+  return [headers, ...rows.map(r => headers.map(h => r[h] ?? ''))]
+}
+
+// ── CONFIG 시트 → { key: value } 맵
+export async function readConfig() {
+  const values = await readSheet('CONFIG')
+  const obj = {}
+  values.slice(1).forEach(([k, v]) => { if (k) obj[String(k)] = v })
+  return obj
+}
+
+// ── CONFIG 단일 값 업데이트 (전체 rewrite)
+export async function updateConfig(key, value, allValues) {
+  const updated = allValues.map(row =>
+    row[0] === key ? [key, String(value)] : row
+  )
+  return writeSheet('CONFIG', updated)
 }
