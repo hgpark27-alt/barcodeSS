@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import * as api from './api'
 import UploadTab from './UploadTab'
+import PartsTab from './PartsTab'
 import './PCApp.css'
 
 const APP_URL = 'https://hgpark27-alt.github.io/barcodeSS/'
 
 // ── 시트 헤더 (Apps Script와 동일하게 유지)
 const HDRS = {
-  KITS:       ['id', 'name', 'parts', 'updatedAt'],
+  PARTS:      ['partNo', 'description', 'qtyThreshold', 'priceAsIs', 'priceToBe', 'cumulative', 'unit'],
   QUOTES:     ['id', 'quoteNo', 'poNo', 'kitId', 'items', 'totalUSD', 'totalKRW', 'createdAt'],
   TRADE_DOCS: ['id', 'docNo', 'poNo', 'quoteId', 'sn', 'shipping', 'barcodeVal', 'status', 'createdAt'],
 }
@@ -25,7 +26,7 @@ function now() {
 // 공통 헤더
 // ──────────────────────────────────────────
 const NAV_TABS = [
-  { id: 'kits',   label: '키트 관리' },
+  { id: 'parts',  label: '부품 관리' },
   { id: 'quote',  label: '견적서' },
   { id: 'trade',  label: '거래명세서' },
   { id: 'upload', label: 'PTN 업로드' },
@@ -69,178 +70,66 @@ function Sidebar({ tab, onTab }) {
 }
 
 // ──────────────────────────────────────────
-// 키트 관리 탭  (KITS 시트)
-// 키트: id | name | parts(JSON) | updatedAt
-// ──────────────────────────────────────────
-function KitsTab({ kits, rawKits, onSave }) {
-  const [selected, setSelected] = useState(null)   // 편집 중인 키트
-  const [name,     setName]     = useState('')
-  const [partsRaw, setPartsRaw] = useState('[]')   // JSON 문자열
-  const [msg,      setMsg]      = useState(null)
-  const [loading,  setLoading]  = useState(false)
-
-  const openEdit = (kit) => {
-    setSelected(kit)
-    setName(kit.name || '')
-    setPartsRaw(typeof kit.parts === 'string' ? kit.parts : JSON.stringify(kit.parts || [], null, 2))
-    setMsg(null)
-  }
-
-  const openNew = () => {
-    setSelected({ id: uid(), name: '', parts: '[]', updatedAt: '' })
-    setName('')
-    setPartsRaw('[]')
-    setMsg(null)
-  }
-
-  const save = async () => {
-    if (!name.trim()) { setMsg({ type: 'error', text: '키트명 입력' }); return }
-    try { JSON.parse(partsRaw) } catch { setMsg({ type: 'error', text: 'parts JSON 오류' }); return }
-
-    setLoading(true)
-    try {
-      const updated = {
-        ...selected,
-        name:      name.trim(),
-        parts:     partsRaw,
-        updatedAt: now(),
-      }
-      // 기존이면 교체, 신규면 추가
-      const exists = kits.find(k => k.id === updated.id)
-      let newKits
-      if (exists) {
-        newKits = kits.map(k => k.id === updated.id ? updated : k)
-      } else {
-        newKits = [...kits, updated]
-      }
-      await api.writeSheet('KITS', api.fromObjects(HDRS.KITS, newKits))
-      setMsg({ type: 'ok', text: '저장 완료' })
-      onSave()
-    } catch (e) { setMsg({ type: 'error', text: e.message }) }
-    setLoading(false)
-  }
-
-  const remove = async (id) => {
-    if (!confirm('삭제하시겠습니까?')) return
-    setLoading(true)
-    try {
-      const newKits = kits.filter(k => k.id !== id)
-      await api.writeSheet('KITS', api.fromObjects(HDRS.KITS, newKits))
-      if (selected?.id === id) setSelected(null)
-      onSave()
-    } catch (e) { alert(e.message) }
-    setLoading(false)
-  }
-
-  return (
-    <div className="pc-tab-body">
-      <div className="tab-title-row">
-        <div className="tab-title">키트 관리 ({kits.length})</div>
-        <button className="btn-primary" onClick={openNew}>+ 키트 추가</button>
-      </div>
-
-      <div className="kit-layout">
-        {/* 목록 */}
-        <div className="kit-list">
-          {kits.length === 0
-            ? <div className="empty-state">키트가 없습니다</div>
-            : kits.map(k => (
-              <div key={k.id}
-                className={`kit-item ${selected?.id === k.id ? 'active' : ''}`}
-                onClick={() => openEdit(k)}>
-                <div className="kit-item-name">{k.name || '(이름없음)'}</div>
-                <div className="kit-item-meta">{(() => {
-                  try { const p = JSON.parse(k.parts); return `부품 ${p.length}개` } catch { return '부품 정보 없음' }
-                })()} · {String(k.updatedAt || '').slice(0, 10)}</div>
-              </div>
-            ))
-          }
-        </div>
-
-        {/* 편집 패널 */}
-        {selected ? (
-          <div className="form-card kit-edit">
-            <div className="form-row">
-              <label>키트명</label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="SERVICE KIT 0247-06765" />
-            </div>
-            <div className="form-col">
-              <label className="form-label-full">
-                부품 목록 (JSON) — 예: [{`{"partNo":"0041-90314","desc":"SEAL","qty":2,"price":100}`}]
-              </label>
-              <textarea
-                className="paste-area"
-                value={partsRaw}
-                onChange={e => setPartsRaw(e.target.value)}
-                rows={8}
-                placeholder='[{"partNo":"","desc":"","qty":1,"price":0}]'
-              />
-            </div>
-            {msg && <div className={`msg msg-${msg.type}`}>{msg.text}</div>}
-            <div className="btn-row">
-              <button className="btn-primary" onClick={save} disabled={loading}>
-                {loading ? '저장중...' : '저장'}
-              </button>
-              <button className="btn-danger" onClick={() => remove(selected.id)} disabled={loading}>삭제</button>
-              <button className="btn-secondary" onClick={() => setSelected(null)}>닫기</button>
-            </div>
-          </div>
-        ) : (
-          <div className="kit-empty-panel">키트를 선택하거나 새로 추가하세요</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ──────────────────────────────────────────
 // 견적서 탭  (QUOTES 시트)
 // QUOTES: id | quoteNo | poNo | kitId | items(JSON) | totalUSD | totalKRW | createdAt
 // ──────────────────────────────────────────
-function QuoteTab({ kits, quotes, config, rawQuotes, onSave }) {
-  const [step,     setStep]     = useState('select')  // select → edit → done
-  const [kitId,    setKitId]    = useState('')
-  const [poNo,     setPoNo]     = useState('')
-  const [items,    setItems]    = useState([])          // [{partNo, desc, qty, price, total}]
-  const [exRate,   setExRate]   = useState(Number(config?.exchangeRate || 1350))
-  const [msg,      setMsg]      = useState(null)
-  const [loading,  setLoading]  = useState(false)
+function QuoteTab({ parts, ptnData, quotes, config, onSave }) {
+  const [poNo,          setPoNo]          = useState('')
+  const [selectedPartNo, setSelectedPartNo] = useState('')
+  const [qty,           setQty]           = useState(1)
+  const [exRate,        setExRate]        = useState(Number(config?.exchangeRate || 1350))
+  const [msg,           setMsg]           = useState(null)
+  const [loading,       setLoading]       = useState(false)
+  const [done,          setDone]          = useState(null)
 
-  const selectedKit = kits.find(k => k.id === kitId)
+  const ptnEntry    = ptnData.find(p => p.poNo === poNo)
+  const selectedPart = parts.find(p => p.partNo === selectedPartNo)
 
-  const loadKit = () => {
-    if (!selectedKit) return
-    try {
-      const parts = JSON.parse(selectedKit.parts || '[]')
-      setItems(parts.map(p => ({
-        partNo: p.partNo || '',
-        desc:   p.desc   || '',
-        qty:    Number(p.qty   || 1),
-        price:  Number(p.price || 0),
-      })))
-      setStep('edit')
-    } catch { setMsg({ type: 'error', text: 'parts JSON 오류' }) }
+  // PTN에서 PO 선택 시 partNo 자동 매칭
+  useEffect(() => {
+    if (ptnEntry?.partNo) setSelectedPartNo(ptnEntry.partNo)
+  }, [ptnEntry?.partNo])
+
+  // 단가 계산
+  const cum       = Number(selectedPart?.cumulative  || 0)
+  const thr       = Number(selectedPart?.qtyThreshold || 0)
+  const priceAsIs = Number(selectedPart?.priceAsIs   || 0)
+  const priceToBe = Number(selectedPart?.priceToBe   || 0)
+
+  let qtyAsIs = 0, qtyToBe = 0, totalUSD = 0
+  if (selectedPart && qty > 0) {
+    if (thr === 0 || cum >= thr) {
+      qtyToBe = qty; totalUSD = qty * priceToBe
+    } else if (cum + qty <= thr) {
+      qtyAsIs = qty; totalUSD = qty * priceAsIs
+    } else {
+      qtyAsIs = thr - cum; qtyToBe = qty - qtyAsIs
+      totalUSD = qtyAsIs * priceAsIs + qtyToBe * priceToBe
+    }
   }
-
-  const totalUSD = items.reduce((s, it) => s + it.qty * it.price, 0)
   const totalKRW = Math.round(totalUSD * exRate)
 
-  const nextQuoteNo = () => {
-    const seq = Number(config?.quoteSequence || 1)
-    return `Q${new Date().getFullYear()}-${String(seq).padStart(4, '0')}`
-  }
+  const canSave = poNo.trim() && selectedPart && qty > 0 && totalUSD > 0
 
   const save = async () => {
-    if (!poNo.trim()) { setMsg({ type: 'error', text: 'PO번호 입력' }); return }
+    if (!canSave) return
     setLoading(true)
     try {
-      const quoteNo = nextQuoteNo()
+      const seq     = Number(config?.quoteSequence || 1)
+      const quoteNo = `Q${new Date().getFullYear()}-${String(seq).padStart(4, '0')}`
+      const items   = JSON.stringify([{
+        partNo:      selectedPart.partNo,
+        description: selectedPart.description,
+        qty, qtyAsIs, qtyToBe,
+        priceAsIs, priceToBe, totalUSD,
+        unit: selectedPart.unit || 'EA',
+      }])
       const newQuote = {
         id:        uid(),
         quoteNo,
         poNo:      poNo.trim(),
-        kitId,
-        items:     JSON.stringify(items),
+        kitId:     '',
+        items,
         totalUSD:  totalUSD.toFixed(2),
         totalKRW:  totalKRW.toString(),
         createdAt: now(),
@@ -248,117 +137,155 @@ function QuoteTab({ kits, quotes, config, rawQuotes, onSave }) {
       await api.appendRow('QUOTES', HDRS.QUOTES.map(h => newQuote[h] ?? ''))
 
       // CONFIG quoteSequence 증가
-      if (config) {
-        const seq = Number(config.quoteSequence || 1) + 1
-        const cfgValues = await api.readSheet('CONFIG')
-        await api.updateConfig('quoteSequence', seq, cfgValues)
-      }
+      const cfgValues = await api.readSheet('CONFIG')
+      await api.updateConfig('quoteSequence', seq + 1, cfgValues)
 
-      setMsg({ type: 'ok', text: `저장: ${quoteNo}` })
-      setStep('done')
+      // PARTS cumulative 업데이트
+      const partsValues  = await api.readSheet('PARTS')
+      const partsObjs    = api.toObjects(partsValues)
+      const updatedParts = partsObjs.map(p =>
+        p.partNo === selectedPart.partNo
+          ? { ...p, cumulative: String(cum + qty) }
+          : p
+      )
+      await api.writeSheet('PARTS', api.fromObjects(HDRS.PARTS, updatedParts))
+
+      setDone(quoteNo)
+      setMsg({ type: 'ok', text: `저장 완료: ${quoteNo}` })
       onSave()
     } catch (e) { setMsg({ type: 'error', text: e.message }) }
     setLoading(false)
   }
 
+  if (done) return (
+    <div className="pc-tab-body">
+      <div className="tab-title">견적서 생성</div>
+      <div className="form-card">
+        <div className="msg msg-ok">{msg?.text}</div>
+        <div className="btn-row">
+          <button className="btn-primary" onClick={() => {
+            setDone(null); setPoNo(''); setSelectedPartNo(''); setQty(1); setMsg(null)
+          }}>
+            새 견적서
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="pc-tab-body">
       <div className="tab-title">견적서 생성</div>
 
-      {step === 'select' && (
-        <div className="form-card">
-          <div className="form-row">
-            <label>키트 선택</label>
-            <select value={kitId} onChange={e => setKitId(e.target.value)}>
-              <option value="">-- 키트 선택 --</option>
-              {kits.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
-            </select>
-          </div>
-          <div className="form-row">
-            <label>PO번호</label>
-            <input value={poNo} onChange={e => setPoNo(e.target.value)} placeholder="PO25033100083" className="mono" />
-          </div>
-          <div className="form-row">
-            <label>환율 (₩/$)</label>
-            <input type="number" value={exRate} onChange={e => setExRate(Number(e.target.value))} />
-          </div>
-          {msg && <div className={`msg msg-${msg.type}`}>{msg.text}</div>}
-          <button className="btn-primary" onClick={loadKit} disabled={!kitId}>다음 → 부품 확인</button>
-        </div>
-      )}
-
-      {step === 'edit' && (
-        <>
-          <div className="form-card">
-            <div className="quote-kit-name">{selectedKit?.name}</div>
-            <div className="quote-po">PO: <span className="mono">{poNo}</span></div>
-          </div>
-
-          <div className="master-table-wrap">
-            <table className="master-table">
-              <thead>
-                <tr>
-                  <th>#</th><th>Part No.</th><th>Description</th>
-                  <th>Qty</th><th>Unit Price ($)</th><th>Total ($)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td className="mono">
-                      <input className="cell-input mono" value={it.partNo}
-                        onChange={e => setItems(prev => prev.map((x, j) => j === i ? { ...x, partNo: e.target.value } : x))} />
-                    </td>
-                    <td>
-                      <input className="cell-input" value={it.desc}
-                        onChange={e => setItems(prev => prev.map((x, j) => j === i ? { ...x, desc: e.target.value } : x))} />
-                    </td>
-                    <td>
-                      <input className="cell-input num" type="number" min="1" value={it.qty}
-                        onChange={e => setItems(prev => prev.map((x, j) => j === i ? { ...x, qty: Number(e.target.value) } : x))} />
-                    </td>
-                    <td>
-                      <input className="cell-input num" type="number" min="0" step="0.01" value={it.price}
-                        onChange={e => setItems(prev => prev.map((x, j) => j === i ? { ...x, price: Number(e.target.value) } : x))} />
-                    </td>
-                    <td className="right mono">${(it.qty * it.price).toLocaleString('en', { minimumFractionDigits: 2 })}</td>
-                  </tr>
+      <div className="form-card">
+        {/* PO 번호 */}
+        <div className="form-row">
+          <label>PO번호</label>
+          <div style={{ display:'flex', gap:8, flex:1 }}>
+            <input
+              className="mono" style={{ flex:1 }}
+              value={poNo} onChange={e => setPoNo(e.target.value)}
+              placeholder="PO번호 직접 입력"
+            />
+            {ptnData.length > 0 && (
+              <select
+                value={poNo}
+                onChange={e => setPoNo(e.target.value)}
+                style={{ flexShrink:0, maxWidth:200 }}
+              >
+                <option value="">PTN에서 선택 ▾</option>
+                {ptnData.map(p => (
+                  <option key={p.poNo} value={p.poNo}>{p.poNo} · {p.partNo}</option>
                 ))}
-              </tbody>
-              <tfoot>
-                <tr className="total-row">
-                  <td colSpan="5" className="right">합계</td>
-                  <td className="right mono"><strong>${totalUSD.toLocaleString('en', { minimumFractionDigits: 2 })}</strong></td>
-                </tr>
-                <tr className="total-row">
-                  <td colSpan="5" className="right">₩ (환율 {exRate.toLocaleString()})</td>
-                  <td className="right mono"><strong>₩{totalKRW.toLocaleString()}</strong></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          {msg && <div className={`msg msg-${msg.type}`}>{msg.text}</div>}
-          <div className="btn-row">
-            <button className="btn-secondary" onClick={() => setStep('select')}>← 다시</button>
-            <button className="btn-primary" onClick={save} disabled={loading}>
-              {loading ? '저장중...' : '견적서 저장'}
-            </button>
-          </div>
-        </>
-      )}
-
-      {step === 'done' && (
-        <div className="form-card">
-          <div className="msg msg-ok">{msg?.text || '저장 완료'}</div>
-          <div className="btn-row">
-            <button className="btn-primary" onClick={() => { setStep('select'); setKitId(''); setPoNo(''); setMsg(null) }}>
-              새 견적서
-            </button>
+              </select>
+            )}
           </div>
         </div>
-      )}
+
+        {/* 부품 선택 */}
+        <div className="form-row">
+          <label>부품 선택</label>
+          <select value={selectedPartNo} onChange={e => setSelectedPartNo(e.target.value)}>
+            <option value="">-- 부품 선택 --</option>
+            {parts.map(p => (
+              <option key={p.partNo} value={p.partNo}>{p.partNo} — {p.description}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 선택된 부품 정보 */}
+        {selectedPart && (
+          <div className="part-info-box">
+            <div className="part-info-row">
+              <span>As-is 단가</span>
+              <strong>${Number(priceAsIs).toLocaleString('en', { minimumFractionDigits:2 })}</strong>
+            </div>
+            <div className="part-info-row">
+              <span>To-be 단가</span>
+              <strong>${Number(priceToBe).toLocaleString('en', { minimumFractionDigits:2 })}</strong>
+            </div>
+            <div className="part-info-row">
+              <span>누적 사용</span>
+              <strong className="mono">{cum} / {thr || '∞'}</strong>
+              {thr > 0 && (
+                <div className="cum-bar-wrap">
+                  <div className="cum-bar" style={{ width: `${Math.min(100, thr > 0 ? (cum/thr)*100 : 0)}%` }} />
+                </div>
+              )}
+            </div>
+            <div className="part-info-row">
+              <span>현재 적용 단가</span>
+              <span className={`price-tier-badge ${thr === 0 || cum >= thr ? 'tobe' : 'asis'}`}>
+                {thr === 0 || cum >= thr ? 'To-be' : 'As-is'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 수량 & 환율 */}
+        <div className="form-row">
+          <label>수량</label>
+          <input type="number" min="1" value={qty}
+            onChange={e => setQty(Math.max(1, Number(e.target.value)))} />
+        </div>
+        <div className="form-row">
+          <label>환율 (₩/$)</label>
+          <input type="number" value={exRate} onChange={e => setExRate(Number(e.target.value))} />
+        </div>
+
+        {/* 단가 분할 계산 결과 */}
+        {selectedPart && qty > 0 && (
+          <div className="price-breakdown-box">
+            {qtyAsIs > 0 && (
+              <div className="pb-row">
+                <span className="price-tier-badge asis">As-is</span>
+                <span className="mono">{qtyAsIs} {selectedPart.unit||'EA'} × ${priceAsIs.toLocaleString('en',{minimumFractionDigits:2})}</span>
+                <span className="mono pb-total">${(qtyAsIs * priceAsIs).toLocaleString('en',{minimumFractionDigits:2})}</span>
+              </div>
+            )}
+            {qtyToBe > 0 && (
+              <div className="pb-row">
+                <span className="price-tier-badge tobe">To-be</span>
+                <span className="mono">{qtyToBe} {selectedPart.unit||'EA'} × ${priceToBe.toLocaleString('en',{minimumFractionDigits:2})}</span>
+                <span className="mono pb-total">${(qtyToBe * priceToBe).toLocaleString('en',{minimumFractionDigits:2})}</span>
+              </div>
+            )}
+            <div className="pb-total-row">
+              <span>합계</span>
+              <span className="mono">${totalUSD.toLocaleString('en',{minimumFractionDigits:2})}</span>
+              <span className="mono" style={{color:'#64748b'}}>₩{totalKRW.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
+        {msg && <div className={`msg msg-${msg.type}`}>{msg.text}</div>}
+
+        <div className="btn-row">
+          <button className="btn-primary" onClick={save} disabled={!canSave || loading}>
+            {loading ? '저장중...' : '견적서 저장'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -580,12 +507,12 @@ function ListTab({ quotes, tradeDocs, onRefresh }) {
 // 루트 PC App
 // ──────────────────────────────────────────
 export default function PCApp() {
-  const [tab,       setTab]       = useState('kits')
-  const [kits,      setKits]      = useState([])
+  const [tab,       setTab]       = useState('parts')
+  const [parts,     setParts]     = useState([])
+  const [ptnData,   setPtnData]   = useState([])
   const [quotes,    setQuotes]    = useState([])
   const [tradeDocs, setTradeDocs] = useState([])
   const [config,    setConfig]    = useState({})
-  const [rawKits,   setRawKits]   = useState([])
   const [rawQuotes, setRawQuotes] = useState([])
   const [rawTrade,  setRawTrade]  = useState([])
   const [loading,   setLoading]   = useState(false)
@@ -596,16 +523,18 @@ export default function PCApp() {
     setLoading(true)
     setErr(null)
     try {
-      const [kV, qV, tV, cfg] = await Promise.all([
-        api.readSheet('KITS'),
+      const [pV, qV, tV, cfg, ptnV] = await Promise.all([
+        api.readSheet('PARTS'),
         api.readSheet('QUOTES'),
         api.readSheet('TRADE_DOCS'),
         api.readConfig(),
+        api.readSheet('PTN'),
       ])
-      setRawKits(kV);  setKits(api.toObjects(kV))
+      setParts(api.toObjects(pV))
       setRawQuotes(qV); setQuotes(api.toObjects(qV))
       setRawTrade(tV);  setTradeDocs(api.toObjects(tV))
       setConfig(cfg)
+      setPtnData(ptnV && ptnV.length > 0 ? api.toObjects(ptnV) : [])
     } catch (e) { setErr(e.message) }
     setLoading(false)
   }, [])
@@ -627,8 +556,8 @@ export default function PCApp() {
       <div className="pc-body">
         <Sidebar tab={tab} onTab={setTab} />
         <main className="pc-main">
-          {tab === 'kits'   && <KitsTab   kits={kits}    rawKits={rawKits}   onSave={load} />}
-          {tab === 'quote'  && <QuoteTab  kits={kits}    quotes={quotes}     config={config} rawQuotes={rawQuotes} onSave={load} />}
+          {tab === 'parts'  && <PartsTab  parts={parts}  onSave={load} />}
+          {tab === 'quote'  && <QuoteTab  parts={parts}  ptnData={ptnData}  quotes={quotes} config={config} onSave={load} />}
           {tab === 'trade'  && <TradeTab  quotes={quotes} tradeDocs={tradeDocs} rawTradeDocs={rawTrade} onSave={load} />}
           {tab === 'upload' && <UploadTab />}
           {tab === 'list'   && <ListTab   quotes={quotes} tradeDocs={tradeDocs} onRefresh={load} />}

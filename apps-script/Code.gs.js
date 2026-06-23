@@ -21,6 +21,7 @@ const SHEET_ID = "1GVU10lk0Q81ur1JZBnY2lrJn_I2SETpaj_vyvcWJvtc"
 // 시트별 헤더 정의
 const HEADERS = {
   KITS:       ["id", "name", "parts", "updatedAt"],
+  PARTS:      ["partNo", "description", "qtyThreshold", "priceAsIs", "priceToBe", "cumulative", "unit"],
   QUOTES:     ["id", "quoteNo", "poNo", "kitId", "items", "totalUSD", "totalKRW", "createdAt"],
   TRADE_DOCS: ["id", "docNo", "poNo", "quoteId", "sn", "shipping", "barcodeVal", "status", "createdAt"],
   PTN:        ["poNo", "pkgId", "partNo"],

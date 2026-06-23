@@ -766,3 +766,78 @@ tr.row-unmatched td {
   color: #9a3412;
   margin-top: 12px;
 }
+
+/* ── 부품 정보 박스 ── */
+.part-info-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.part-info-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.part-info-row > span:first-child { color: #64748b; min-width: 90px; }
+.cum-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cum-bar {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+/* ── 단가 뱃지 ── */
+.price-tier-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.price-tier-badge.asis     { background: #dbeafe; color: #1d4ed8; }
+.price-tier-badge.tobe     { background: #ede9fe; color: #6d28d9; }
+.price-tier-badge.imminent { background: #fff7ed; color: #c2410c; }
+
+/* ── 단가 분할 계산 박스 ── */
+.price-breakdown-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.pb-row .mono { flex: 1; }
+.pb-total { text-align: right; font-weight: 600; }
+.pb-total-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.pb-total-row span:first-child { flex: 0 0 auto; color: #64748b; }
+.pb-total-row span:nth-child(2) { flex: 1; }
